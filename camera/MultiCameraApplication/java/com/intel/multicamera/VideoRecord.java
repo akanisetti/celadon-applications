@@ -66,6 +66,7 @@ import static com.intel.multicamera.SettingsPrefUtil.SIZE_HD;
 public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder.OnInfoListener{
 
     private static final String TAG = "VideoRecord";
+    private static final int MAX_VIDEO_NAME_LENGTH = 128;
     private CameraDevice mCameraDevice;
     private AutoFitTextureView mTextureView;
     private Activity mActivity;
@@ -171,6 +172,10 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
                     Log.e(TAG, "setUpMediaRecorder Invalid file details");
                     return;
                 }
+                if (!isSafeVideoDisplayName(VideofileDetails[1])) {
+                    Log.e(TAG, "setUpMediaRecorder Invalid generated display name");
+                    return;
+                }
                 ContentResolver resolver = mContext.getContentResolver();
 
                 Uri collection = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
@@ -182,8 +187,7 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
 
                 mVideoUri = resolver.insert(collection,mCurrentVideoValues);
 
-                if(mVideoUri != null && "content".equals(mVideoUri.getScheme())
-                    && android.provider.MediaStore.AUTHORITY.equals(mVideoUri.getAuthority())) {
+                if (isTrustedMediaStoreUri(mVideoUri)) {
                     try {
                         mPfd = resolver.openFileDescriptor(mVideoUri,"rw");
                         if(mPfd != null) {
@@ -197,6 +201,20 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
         }
 
         MultiViewActivity.updateStorageSpace(null);
+    }
+
+    private boolean isTrustedMediaStoreUri(Uri uri) {
+        return uri != null
+                && "content".equals(uri.getScheme())
+                && android.provider.MediaStore.AUTHORITY.equals(uri.getAuthority());
+    }
+
+    private boolean isSafeVideoDisplayName(String displayName) {
+        return displayName != null
+                && !displayName.isEmpty()
+                && displayName.length() <= MAX_VIDEO_NAME_LENGTH
+                && displayName.endsWith(".mp4")
+                && displayName.matches("[A-Za-z0-9._-]+\\.mp4");
     }
 
     public void stopRecordingVideo() {
@@ -486,6 +504,10 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
             Log.e(TAG, "setUpMediaRecorder Invalid file details");
             return;
         }
+        if (!isSafeVideoDisplayName(VideofileDetails[1])) {
+            Log.e(TAG, "setUpMediaRecorder Invalid generated display name");
+            return;
+        }
 
         ContentResolver resolver = mContext.getContentResolver();
 
@@ -498,8 +520,7 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
         mVideoUri = resolver.insert(collection,mCurrentVideoValues);
 
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        if(mVideoUri != null && "content".equals(mVideoUri.getScheme())
-            && android.provider.MediaStore.AUTHORITY.equals(mVideoUri.getAuthority()))
+        if (isTrustedMediaStoreUri(mVideoUri))
         {
             /**
             * set output file in media recorder
