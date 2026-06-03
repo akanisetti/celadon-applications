@@ -49,7 +49,9 @@ public class USBChangeDialog {
                                        @Override
                                        public void onClick(DialogInterface dialog,
                                                            int whichButton) {
-                                           System.exit(0);
+                                           if (context instanceof Activity) {
+                                               ((Activity) context).finishAffinity();
+                                           }
                                        }
                                    })
                 .create();
