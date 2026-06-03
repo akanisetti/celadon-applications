@@ -308,6 +308,10 @@ public class Utils {
         try {
             ContentResolver resolver = context.getContentResolver();
             stream = resolver.openInputStream(uri);
+            if (stream == null) {
+                Log.e(TAG, "Failed to open input stream for thumbnail");
+                return Optional.empty();
+            }
             int width = 1280;
             int height = 720;  //.getDimensions().getHeight();
             int orientation = 0;
@@ -419,6 +423,10 @@ public class Utils {
 
         try {
             mVideoFileDescriptor = mContentResolver.openFileDescriptor(uri, "r");
+            if (mVideoFileDescriptor == null) {
+                Log.e(TAG, "Failed to open video file descriptor");
+                return Optional.empty();
+            }
             bitmap = Thumbnail.createVideoThumbnailBitmap(mVideoFileDescriptor.getFileDescriptor(),
                                                           720);
         } catch (java.io.FileNotFoundException ex) {

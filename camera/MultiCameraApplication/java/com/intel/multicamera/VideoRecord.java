@@ -39,6 +39,7 @@ import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.os.ParcelFileDescriptor;
@@ -529,8 +530,16 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
         int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
         CameraManager manager = (CameraManager)mActivity.getSystemService(Context.CAMERA_SERVICE);
         try {
+            if (manager == null) {
+                Log.e(TAG, "Camera service unavailable");
+                return;
+            }
             CameraCharacteristics characteristics = manager.getCameraCharacteristics(mCameraId);
-            mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            Integer sensorOrientation =
+                    characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            if (sensorOrientation != null) {
+                mSensorOrientation = sensorOrientation;
+            }
         } catch (Exception e) {
 
         }
@@ -659,13 +668,19 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
 
 
     private void updatePreview() {
-        if (null == mCameraDevice) {
+        if (null == mCameraDevice || captureRequestBuilder == null || cameraCaptureSessions == null) {
             Log.e(TAG, "updatePreview error");
+            return;
         }
         captureRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
         HandlerThread thread = new HandlerThread("Camera Preview");
         thread.start();
-        Handler handler = new Handler(thread.getLooper());
+        Looper looper = thread.getLooper();
+        if (looper == null) {
+            Log.e(TAG, "updatePreview looper is null");
+            return;
+        }
+        Handler handler = new Handler(looper);
         try {
             cameraCaptureSessions.setRepeatingRequest(captureRequestBuilder.build(), null, handler);
         } catch (CameraAccessException e) {

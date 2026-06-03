@@ -42,6 +42,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.provider.MediaStore;
@@ -301,7 +302,11 @@ public class CameraBase  {
 
             configureTransform(width, height);
 
-            mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            Integer sensorOrientation =
+                    characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            if (sensorOrientation != null) {
+                mSensorOrientation = sensorOrientation;
+            }
 
             manager.openCamera(cameraId, stateCallback, null);
 
@@ -574,13 +579,19 @@ public class CameraBase  {
     }
 
     private void updatePreview() {
-        if (null == mCameraDevice) {
+        if (null == mCameraDevice || captureRequestBuilder == null || cameraCaptureSessions == null) {
             Log.e(TAG, "updatePreview error");
+            return;
         }
         captureRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
         HandlerThread thread = new HandlerThread("Camera Preview");
         thread.start();
-        Handler handler = new Handler(thread.getLooper());
+        Looper looper = thread.getLooper();
+        if (looper == null) {
+            Log.e(TAG, "updatePreview looper is null");
+            return;
+        }
+        Handler handler = new Handler(looper);
         try {
             cameraCaptureSessions.setRepeatingRequest(captureRequestBuilder.build(), null, handler);
         } catch (CameraAccessException e) {
@@ -674,10 +685,13 @@ public class CameraBase  {
                             OutputStream output = null;
                             try {
                                 output = resolver.openOutputStream(mImageUri);
+                                if (output == null) {
+                                    Log.e(TAG, "save failed: output stream is null");
+                                    return;
+                                }
                                 output.write(bytes);
                                 mCurrentPictureValues.put(MediaStore.Images.Media.SIZE,bytes.length);
                                 resolver.update(mImageUri,mCurrentPictureValues,null,null);
-                                output.close();
                             } catch (IOException e) {
                                 e.printStackTrace();
                             } finally {

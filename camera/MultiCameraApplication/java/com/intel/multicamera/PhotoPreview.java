@@ -209,8 +209,16 @@ public class PhotoPreview {
         // For devices with orientation of 270, we need to rotate the JPEG 180 degrees.
         try {
             CameraManager manager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+            if (manager == null) {
+                Log.e(TAG, "Camera service unavailable");
+                return (ORIENTATIONS.get(rotation) + mSensorOrientation + 270) % 360;
+            }
             CameraCharacteristics characteristics = manager.getCameraCharacteristics(mCameraId);
-            mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            Integer sensorOrientation =
+                    characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            if (sensorOrientation != null) {
+                mSensorOrientation = sensorOrientation;
+            }
         } catch (Exception e) {
             Log.e(TAG, "getOrientation Issue: ");
         }
