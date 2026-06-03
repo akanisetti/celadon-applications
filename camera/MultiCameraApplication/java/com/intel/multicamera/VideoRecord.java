@@ -157,6 +157,21 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
             mPfd = null;
         }
     }
+
+    private boolean isValidMediaStoreVideoUri(Uri uri) {
+        if (uri == null) {
+            return false;
+        }
+        if (!ContentResolver.SCHEME_CONTENT.equals(uri.getScheme())) {
+            return false;
+        }
+        if (!MediaStore.AUTHORITY.equals(uri.getAuthority())) {
+            return false;
+        }
+        List<String> segments = uri.getPathSegments();
+        return segments != null && segments.contains("video") && segments.contains("media");
+    }
+
     // from MediaRecorder.OnInfoListener
     @Override
     public void onInfo(MediaRecorder mr, int what, int extra) {
@@ -183,7 +198,7 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
 
                 mVideoUri = resolver.insert(collection,mCurrentVideoValues);
 
-                if(mVideoUri != null && "content".equals(mVideoUri.getScheme())) {
+                if (isValidMediaStoreVideoUri(mVideoUri)) {
                     try {
                         mPfd = resolver.openFileDescriptor(mVideoUri,"rw");
                         if(mPfd != null) {
@@ -498,7 +513,7 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
         mVideoUri = resolver.insert(collection,mCurrentVideoValues);
 
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        if(mVideoUri != null && "content".equals(mVideoUri.getScheme()))
+        if (isValidMediaStoreVideoUri(mVideoUri))
         {
             /**
             * set output file in media recorder
