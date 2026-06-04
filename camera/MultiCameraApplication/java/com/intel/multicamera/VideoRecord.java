@@ -18,6 +18,7 @@
 package com.intel.multicamera;
 
 import android.app.Activity;
+import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.ContentResolver;
@@ -172,6 +173,22 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
         return segments != null && segments.contains("video") && segments.contains("media");
     }
 
+    private Uri buildTrustedMediaStoreVideoUri(Uri collection, Uri insertedUri) {
+        if (!isValidMediaStoreVideoUri(collection) || !isValidMediaStoreVideoUri(insertedUri)) {
+            return null;
+        }
+        try {
+            long mediaId = ContentUris.parseId(insertedUri);
+            if (mediaId < 0) {
+                return null;
+            }
+            return ContentUris.withAppendedId(collection, mediaId);
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Invalid inserted video uri", e);
+            return null;
+        }
+    }
+
     // from MediaRecorder.OnInfoListener
     @Override
     public void onInfo(MediaRecorder mr, int what, int extra) {
@@ -196,17 +213,21 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
                         Utils.getContentValues(Utils.MEDIA_TYPE_VIDEO, VideofileDetails,
                                 mProfile.videoFrameWidth, mProfile.videoFrameHeight, 0, 0);
 
-                mVideoUri = resolver.insert(collection,mCurrentVideoValues);
+                Uri insertedUri = resolver.insert(collection,mCurrentVideoValues);
+                Uri trustedVideoUri = buildTrustedMediaStoreVideoUri(collection, insertedUri);
 
-                if (isValidMediaStoreVideoUri(mVideoUri)) {
+                if (trustedVideoUri != null) {
+                    mVideoUri = trustedVideoUri;
                     try {
-                        mPfd = resolver.openFileDescriptor(mVideoUri,"rw");
+                        mPfd = resolver.openFileDescriptor(trustedVideoUri,"rw");
                         if(mPfd != null) {
                             mMediaRecorder.setNextOutputFile(mPfd.getFileDescriptor());
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+                } else {
+                    Log.e(TAG, "Invalid URI received for next video output");
                 }
             }
         }
@@ -510,16 +531,18 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
                 Utils.getContentValues(Utils.MEDIA_TYPE_VIDEO, VideofileDetails,
                         mProfile.videoFrameWidth, mProfile.videoFrameHeight, 0, 0);
 
-        mVideoUri = resolver.insert(collection,mCurrentVideoValues);
+        Uri insertedUri = resolver.insert(collection,mCurrentVideoValues);
+        Uri trustedVideoUri = buildTrustedMediaStoreVideoUri(collection, insertedUri);
 
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        if (isValidMediaStoreVideoUri(mVideoUri))
+        if (trustedVideoUri != null)
         {
+            mVideoUri = trustedVideoUri;
             /**
             * set output file in media recorder
             */
             try {
-                mPfd = resolver.openFileDescriptor(mVideoUri,"rw");
+                mPfd = resolver.openFileDescriptor(trustedVideoUri,"rw");
                 if(mPfd != null) {
                     mMediaRecorder.setOutputFile(mPfd.getFileDescriptor());
                 }
@@ -555,8 +578,10 @@ public class VideoRecord implements MediaRecorder.OnErrorListener, MediaRecorder
             if (sensorOrientation != null) {
                 mSensorOrientation = sensorOrientation;
             }
-        } catch (Exception e) {
-
+        } catch (CameraAccessException e) {
+            Log.e(TAG, "Failed to query camera sensor orientation", e);
+        } catch (SecurityException e) {
+            Log.e(TAG, "Missing permission to query camera sensor orientation", e);
         }
         switch (mSensorOrientation) {
             case SENSOR_ORIENTATION_DEFAULT_DEGREES:

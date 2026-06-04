@@ -542,22 +542,30 @@ public class Utils {
     }
 
     public static long getAvailableSpace() {
+        try {
+            File statPath = null;
+            if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())) {
+                File dcimDir =
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
+                File multiCameraDir = new File(dcimDir, DIRECTORY);
 
-        if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-            //External storage is used to store large media files that need to be accessible
-            //even when the app is not running. The files are encrypted to ensure security.
-            File directory = new File(Environment.getExternalStorageDirectory(),"DCIM/MultiCamera");
-            if(!directory.exists())
-            {
-                Log.e(TAG,"MultiCamera Directory Does not Exist");
-                return -1;
+                // Use target media location when available; otherwise fall back to DCIM.
+                if (multiCameraDir.exists() || multiCameraDir.mkdirs()) {
+                    statPath = multiCameraDir;
+                } else {
+                    statPath = dcimDir;
+                }
             }
-            StatFs statFs = new StatFs(directory.getAbsolutePath());
-            long availableBlocks = statFs.getAvailableBlocksLong();
-            long blocksize = statFs.getBlockSizeLong();
 
-            return availableBlocks * blocksize;
+            if (statPath == null) {
+                statPath = Environment.getDataDirectory();
+            }
+
+            StatFs statFs = new StatFs(statPath.getAbsolutePath());
+            return statFs.getAvailableBytes();
+        } catch (IllegalArgumentException | SecurityException e) {
+            Log.e(TAG, "Failed to query available storage space", e);
+            return -1;
         }
-        return -1;
     }
 }
